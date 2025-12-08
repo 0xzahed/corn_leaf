@@ -188,21 +188,49 @@ DISEASE_INFO = {
 def load_trained_model():
     """Load the trained InceptionV3 model"""
     try:
-        # Try to load the model files in order
-        model_files = [
-            'lightning_studio_inceptionv3_corn_disease_full_training.h5',
-            'best_inceptionv3_corn_full_training.h5',
-            'inceptionv3_corn_disease_full_training.h5',
-            'best_cv_inceptionv3_corn_disease.h5'
-        ]
+        # Model file configuration
+        MODEL_FILENAME = 'model.h5'
         
-        for model_file in model_files:
-            if os.path.exists(model_file):
-                model = load_model(model_file)
-                return model, model_file
+        # Google Drive file ID (replace with your actual file ID)
+        # Upload your model to Google Drive and get the file ID from the shareable link
+        # Link format: https://drive.google.com/file/d/FILE_ID/view
+        GOOGLE_DRIVE_FILE_ID = "1N4BXw33VbFYl18sXus314sjr6j2uvUrT"  # Model file on Google Drive
         
-        st.error("❌ Model file not found! Please ensure the .h5 model file is in the same directory.")
-        return None, None
+        # Check if model exists locally
+        if not os.path.exists(MODEL_FILENAME):
+            # Try to download from Google Drive if file ID is provided
+            if GOOGLE_DRIVE_FILE_ID:
+                try:
+                    import gdown
+                    st.info("📥 Downloading model from Google Drive... (This may take a minute)")
+                    url = f"https://drive.google.com/uc?id={GOOGLE_DRIVE_FILE_ID}"
+                    gdown.download(url, MODEL_FILENAME, quiet=False)
+                    st.success("✅ Model downloaded successfully!")
+                except Exception as download_error:
+                    st.error(f"❌ Failed to download model: {str(download_error)}")
+                    st.error("Please check your Google Drive file ID and sharing permissions.")
+                    return None, None
+            else:
+                # Fallback: Try to load local model files
+                local_model_files = [
+                    'lightning_studio_inceptionv3_corn_disease_full_training.h5',
+                    'best_inceptionv3_corn_full_training.h5',
+                    'inceptionv3_corn_disease_full_training.h5',
+                    'best_cv_inceptionv3_corn_disease.h5'
+                ]
+                
+                for model_file in local_model_files:
+                    if os.path.exists(model_file):
+                        model = load_model(model_file)
+                        return model, model_file
+                
+                st.error("❌ Model file not found! Please upload model to Google Drive and set GOOGLE_DRIVE_FILE_ID.")
+                return None, None
+        
+        # Load the model
+        model = load_model(MODEL_FILENAME)
+        return model, MODEL_FILENAME
+        
     except Exception as e:
         st.error(f"❌ Error loading model: {str(e)}")
         return None, None
