@@ -1,6 +1,6 @@
-streamlit
-tensorflow
+streamlit>=1.28.0
+tensorflow>=2.13.0
 numpy
 Pillow
 gdown
-opencv-python-headless
+opencv-python
