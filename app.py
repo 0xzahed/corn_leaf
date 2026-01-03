@@ -5,7 +5,14 @@ from tensorflow.keras.applications.inception_v3 import preprocess_input
 import numpy as np
 from PIL import Image
 import os
-import cv2
+
+# Try to import cv2 (optional for validation)
+try:
+    import cv2
+    CV2_AVAILABLE = True
+except ImportError:
+    CV2_AVAILABLE = False
+    st.warning("⚠️ OpenCV not available. Image validation will be skipped.")
 
 # Page configuration
 st.set_page_config(
@@ -230,8 +237,12 @@ def preprocess_image(image, target_size=(299, 299)):
 def is_corn_leaf_image(image):
     """
     Basic validation to check if image might be a corn leaf
-    Uses color analysis and edge detection
+    Uses color analysis (requires OpenCV)
     """
+    # If OpenCV not available, skip validation
+    if not CV2_AVAILABLE:
+        return True, 100.0
+    
     # Convert PIL to numpy array
     img_array = np.array(image.convert('RGB'))
     
