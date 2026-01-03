@@ -12,7 +12,6 @@ try:
     CV2_AVAILABLE = True
 except ImportError:
     CV2_AVAILABLE = False
-    st.warning("⚠️ OpenCV not available. Image validation will be skipped.")
 
 # Page configuration
 st.set_page_config(
