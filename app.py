@@ -187,21 +187,13 @@ DISEASE_INFO = {
 
 @st.cache_resource
 def load_trained_model():
-    """Load the trained InceptionV3 model"""
+    """Load the trained InceptionV3 model from Google Drive"""
     try:
         # Google Drive File ID
         GOOGLE_DRIVE_FILE_ID = "1N4BXw33VbFYl18sXus314sjr6j2uvUrT"
         DOWNLOAD_MODEL_NAME = 'model.h5'
         
-        # Local model path (for local development)
-        LOCAL_MODEL_PATH = 'lightning_studio_inceptionv3_corn_disease_full_training.h5'
-        
-        # First, try to load from local path (if exists)
-        if os.path.exists(LOCAL_MODEL_PATH):
-            model = load_model(LOCAL_MODEL_PATH)
-            return model, LOCAL_MODEL_PATH, 5  # 5 classes
-        
-        # If local model not found, download from Google Drive
+        # Download from Google Drive if not already downloaded
         if not os.path.exists(DOWNLOAD_MODEL_NAME):
             import gdown
             url = f"https://drive.google.com/uc?id={GOOGLE_DRIVE_FILE_ID}"
