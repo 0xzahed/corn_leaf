@@ -5,7 +5,6 @@ from tensorflow.keras.applications.inception_v3 import preprocess_input
 import numpy as np
 from PIL import Image
 import os
-import cv2
 
 # Page configuration
 st.set_page_config(
@@ -250,30 +249,9 @@ def preprocess_image(image, target_size=(299, 299)):
 
 def is_corn_leaf_image(image):
     """
-    Basic validation to check if image might be a corn leaf
-    Uses color analysis and edge detection
+    Basic validation - always returns True (simplified for cloud deployment)
     """
-    # Convert PIL to numpy array
-    img_array = np.array(image.convert('RGB'))
-    
-    # Convert to HSV for color analysis
-    hsv = cv2.cvtColor(img_array, cv2.COLOR_RGB2HSV)
-    
-    # Define green color range for leaves (adjust as needed)
-    lower_green = np.array([25, 40, 40])
-    upper_green = np.array([90, 255, 255])
-    
-    # Create mask for green colors
-    green_mask = cv2.inRange(hsv, lower_green, upper_green)
-    
-    # Calculate percentage of green pixels
-    green_percentage = (np.sum(green_mask > 0) / (green_mask.shape[0] * green_mask.shape[1])) * 100
-    
-    # If less than 10% green pixels, probably not a leaf
-    if green_percentage < 10:
-        return False, green_percentage
-    
-    return True, green_percentage
+    return True, 100.0
 
 def predict_disease(model, image):
     """Predict disease from image with confidence filtering"""
