@@ -5,6 +5,7 @@ from tensorflow.keras.applications.inception_v3 import preprocess_input
 import numpy as np
 from PIL import Image
 import os
+import cv2
 
 # Page configuration
 st.set_page_config(
@@ -186,25 +187,46 @@ DISEASE_INFO = {
 
 @st.cache_resource
 def load_trained_model():
-    """Load the trained InceptionV3 model from Google Drive"""
+    """Load the trained InceptionV3 model"""
     try:
-        # Google Drive File ID
+        # Local model path (primary)
+        LOCAL_MODEL_PATH = '/media/panda/Data1/leaf_ditection/lightning_studio_inceptionv3_corn_disease_full_training.h5'
+        
+        # Google Drive backup (if local file not found)
         GOOGLE_DRIVE_FILE_ID = "1N4BXw33VbFYl18sXus314sjr6j2uvUrT"
         DOWNLOAD_MODEL_NAME = 'model.h5'
         
-        # Download from Google Drive if not already downloaded
-        if not os.path.exists(DOWNLOAD_MODEL_NAME):
-            import gdown
-            url = f"https://drive.google.com/uc?id={GOOGLE_DRIVE_FILE_ID}"
-            gdown.download(url, DOWNLOAD_MODEL_NAME, quiet=False)
+        # First, try to load from local path
+        if os.path.exists(LOCAL_MODEL_PATH):
+            st.info("🔄 Loading model from local path...")
+            model = load_model(LOCAL_MODEL_PATH)
+            st.success("✅ Model loaded successfully from local storage!")
+            return model, LOCAL_MODEL_PATH
         
-        # Load the model
+        # If local model not found, try to download from Google Drive
+        st.warning("⚠️ Local model not found. Attempting to download from Google Drive...")
+        
+        if not os.path.exists(DOWNLOAD_MODEL_NAME):
+            try:
+                import gdown
+                st.info("📥 Downloading model from Google Drive... (This may take a minute)")
+                url = f"https://drive.google.com/uc?id={GOOGLE_DRIVE_FILE_ID}"
+                gdown.download(url, DOWNLOAD_MODEL_NAME, quiet=False)
+                st.success("✅ Model downloaded successfully!")
+            except Exception as download_error:
+                st.error(f"❌ Failed to download model: {str(download_error)}")
+                st.error("Please check your internet connection and Google Drive file permissions.")
+                return None, None
+        
+        # Load the downloaded model
+        st.info("🔄 Loading downloaded model...")
         model = load_model(DOWNLOAD_MODEL_NAME)
-        return model, DOWNLOAD_MODEL_NAME, 5  # 5 classes
+        st.success("✅ Model loaded successfully!")
+        return model, DOWNLOAD_MODEL_NAME
         
     except Exception as e:
         st.error(f"❌ Error loading model: {str(e)}")
-        return None, None, None
+        return None, None
 
 def preprocess_image(image, target_size=(299, 299)):
     """Preprocess image for InceptionV3 model"""
@@ -225,6 +247,33 @@ def preprocess_image(image, target_size=(299, 299)):
     img_array = preprocess_input(img_array)
     
     return img_array
+
+def is_corn_leaf_image(image):
+    """
+    Basic validation to check if image might be a corn leaf
+    Uses color analysis and edge detection
+    """
+    # Convert PIL to numpy array
+    img_array = np.array(image.convert('RGB'))
+    
+    # Convert to HSV for color analysis
+    hsv = cv2.cvtColor(img_array, cv2.COLOR_RGB2HSV)
+    
+    # Define green color range for leaves (adjust as needed)
+    lower_green = np.array([25, 40, 40])
+    upper_green = np.array([90, 255, 255])
+    
+    # Create mask for green colors
+    green_mask = cv2.inRange(hsv, lower_green, upper_green)
+    
+    # Calculate percentage of green pixels
+    green_percentage = (np.sum(green_mask > 0) / (green_mask.shape[0] * green_mask.shape[1])) * 100
+    
+    # If less than 10% green pixels, probably not a leaf
+    if green_percentage < 10:
+        return False, green_percentage
+    
+    return True, green_percentage
 
 def predict_disease(model, image):
     """Predict disease from image with confidence filtering"""
@@ -294,7 +343,7 @@ def main():
         """)
     
     # Load model
-    model, model_name, num_classes = load_trained_model()
+    model, model_name = load_trained_model()
     
     if model is None:
         st.stop()
@@ -335,16 +384,66 @@ def main():
             if st.button("🚀 Analyze Image", use_container_width=True):
                 with st.spinner("🔄 Analyzing image... Please wait..."):
                     try:
-                        # Predict disease
-                        st.info("🤖 Running AI analysis...")
+                        # Step 1: Validate if it's a corn leaf image
+                        st.info("🔍 Step 1: Validating image...")
+                        is_leaf, green_percentage = is_corn_leaf_image(image)
+                        
+                        if not is_leaf:
+                            st.error(f"""
+                            🚫 **This doesn't appear to be a corn leaf image!**
+                            
+                            **এটি ভুট্টার পাতার ছবি বলে মনে হচ্ছে না!**
+                            
+                            - Green content detected: {green_percentage:.1f}%
+                            - Expected: At least 10% green pixels
+                            
+                            Please upload a clear image of a corn leaf.
+                            অনুগ্রহ করে ভুট্টার পাতার স্পষ্ট ছবি আপলোড করুন।
+                            """)
+                            st.stop()
+                        
+                        st.success(f"✅ Image validation passed (Green content: {green_percentage:.1f}%)")
+                        
+                        # Step 2: Predict disease
+                        st.info("🤖 Step 2: Running AI analysis...")
                         predicted_class, confidence, all_predictions, confidence_gap = predict_disease(model, image)
                         
+                        # Step 3: Check confidence levels
+                        CONFIDENCE_THRESHOLD = 50  # Minimum confidence required
+                        CONFIDENCE_GAP_THRESHOLD = 20  # Minimum gap between top 2 predictions
+                        
+                        # Determine if prediction is reliable
+                        is_reliable = confidence >= CONFIDENCE_THRESHOLD and confidence_gap >= CONFIDENCE_GAP_THRESHOLD
+                        
+                        if not is_reliable:
+                            st.warning(f"""
+                            ⚠️ **Low Confidence Detection! / কম নিশ্চয়তা!**
+                            
+                            The AI model is not very confident about this prediction.
+                            মডেল এই ছবি সম্পর্কে নিশ্চিত নয়।
+                            
+                            **Possible reasons / সম্ভাব্য কারণ:**
+                            - Image quality is poor / ছবির মান খারাপ
+                            - Not a corn leaf / ভুট্টার পাতা নয়
+                            - Unusual disease pattern / অস্বাভাবিক রোগের লক্ষণ
+                            
+                            **Confidence:** {confidence:.2f}%
+                            **Gap from 2nd prediction:** {confidence_gap:.2f}%
+                            
+                            Please try:
+                            - Upload a clearer image / আরও স্পষ্ট ছবি আপলোড করুন
+                            - Ensure good lighting / ভাল আলো নিশ্চিত করুন
+                            - Consult an agricultural expert / কৃষি বিশেষজ্ঞের পরামর্শ নিন
+                            """)
+                        
                         # Display result
+                        result_color = "linear-gradient(135deg, #667eea 0%, #764ba2 100%)" if is_reliable else "linear-gradient(135deg, #FF9800 0%, #F57C00 100%)"
                         st.markdown(f"""
-                        <div class="result-box">
+                        <div class="result-box" style="background: {result_color};">
                             <h2>🎯 Detection Result</h2>
                             <p class="disease-name">{predicted_class.replace('_', ' ')}</p>
                             <p class="confidence-score">Confidence: {confidence:.2f}%</p>
+                            <p style="font-size: 1rem;">Reliability: {"✅ High" if is_reliable else "⚠️ Low"}</p>
                         </div>
                         """, unsafe_allow_html=True)
                         
@@ -352,18 +451,22 @@ def main():
                         if predicted_class in DISEASE_INFO:
                             info = DISEASE_INFO[predicted_class]
                             
-                            with st.expander("📋 Disease Information", expanded=True):
+                            with st.expander("📋 Disease Information", expanded=is_reliable):
+                                if not is_reliable:
+                                    st.warning("⚠️ Take this information with caution due to low confidence / কম নিশ্চয়তার কারণে সতর্কতার সাথে দেখুন")
                                 st.markdown(f"**Description:** {info['description']}")
                                 st.markdown(f"**Symptoms:** {info['symptoms']}")
                                 st.markdown(f"**Treatment:** {info['treatment']}")
                                 st.markdown(f"**Severity Level:** {info['severity']}")
                         
                         # Display all predictions
-                        with st.expander("📊 All Class Probabilities"):
+                        with st.expander("📊 All Class Probabilities", expanded=not is_reliable):
                             sorted_predictions = dict(sorted(all_predictions.items(), key=lambda x: x[1], reverse=True))
                             for class_name, prob in sorted_predictions.items():
                                 st.progress(prob / 100)
                                 st.write(f"**{class_name.replace('_', ' ')}**: {prob:.2f}%")
+                            
+                            st.info(f"Confidence gap between top 2 predictions: {confidence_gap:.2f}%")
                         
                     except Exception as e:
                         st.error(f"❌ Error during prediction: {str(e)}")
