@@ -5,6 +5,7 @@ from tensorflow.keras.applications.inception_v3 import preprocess_input
 import numpy as np
 from PIL import Image
 import os
+import cv2
 
 # Page configuration
 st.set_page_config(
