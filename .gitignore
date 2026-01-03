@@ -1,20 +1,29 @@
+# Virtual Environment
+venv/
 .venv/
+env/
+
+# Python cache
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .Python
-*.so
-*.egg
-*.egg-info/
-dist/
-build/
+
+# Model files (too large for GitHub)
+*.h5
+model.h5
+
+# Environment
 .env
 .DS_Store
+
+# Logs
 *.log
-.idea/
+
+# IDE
 .vscode/
-*.swp
-*.swo
-*~
-.ipynb_checkpoints/
+.idea/
+
+# Jupyter Notebook
+.ipynb_checkpoints
