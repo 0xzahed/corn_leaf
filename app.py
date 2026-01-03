@@ -249,9 +249,40 @@ def preprocess_image(image, target_size=(299, 299)):
 
 def is_corn_leaf_image(image):
     """
-    Basic validation - always returns True (simplified for cloud deployment)
+    Basic validation to check if image might be a leaf
+    Uses PIL-based color analysis (no OpenCV needed)
     """
-    return True, 100.0
+    # Convert to RGB
+    img_rgb = image.convert('RGB')
+    img_array = np.array(img_rgb)
+    
+    # Calculate average color
+    avg_red = np.mean(img_array[:, :, 0])
+    avg_green = np.mean(img_array[:, :, 1])
+    avg_blue = np.mean(img_array[:, :, 2])
+    
+    # Check if image has significant green content (leaf-like)
+    # Green channel should be relatively high compared to others for leaves
+    green_dominance = avg_green / (avg_red + avg_green + avg_blue + 1) * 100
+    
+    # For leaves, green should be at least 35% of total color
+    # Also check if green > red and green > blue (typical for leaves)
+    is_greenish = avg_green > avg_red and avg_green > avg_blue
+    has_enough_green = green_dominance > 33
+    
+    # Check for skin tones (to reject human photos)
+    # Skin tones typically have high red, moderate green, lower blue
+    is_skin_tone = (avg_red > 100 and avg_red > avg_green and 
+                    avg_green > avg_blue and 
+                    (avg_red - avg_blue) > 30)
+    
+    if is_skin_tone:
+        return False, green_dominance
+    
+    if not (is_greenish or has_enough_green):
+        return False, green_dominance
+    
+    return True, green_dominance
 
 def predict_disease(model, image):
     """Predict disease from image with confidence filtering"""
