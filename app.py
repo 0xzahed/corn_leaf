@@ -189,44 +189,31 @@ DISEASE_INFO = {
 def load_trained_model():
     """Load the trained InceptionV3 model"""
     try:
-        # Local model path (primary)
-        LOCAL_MODEL_PATH = '/media/panda/Data1/leaf_ditection/lightning_studio_inceptionv3_corn_disease_full_training.h5'
-        
-        # Google Drive backup (if local file not found)
+        # Google Drive File ID
         GOOGLE_DRIVE_FILE_ID = "1N4BXw33VbFYl18sXus314sjr6j2uvUrT"
         DOWNLOAD_MODEL_NAME = 'model.h5'
         
-        # First, try to load from local path
+        # Local model path (for local development)
+        LOCAL_MODEL_PATH = 'lightning_studio_inceptionv3_corn_disease_full_training.h5'
+        
+        # First, try to load from local path (if exists)
         if os.path.exists(LOCAL_MODEL_PATH):
-            st.info("🔄 Loading model from local path...")
             model = load_model(LOCAL_MODEL_PATH)
-            st.success("✅ Model loaded successfully from local storage!")
-            return model, LOCAL_MODEL_PATH
+            return model, LOCAL_MODEL_PATH, 5  # 5 classes
         
-        # If local model not found, try to download from Google Drive
-        st.warning("⚠️ Local model not found. Attempting to download from Google Drive...")
-        
+        # If local model not found, download from Google Drive
         if not os.path.exists(DOWNLOAD_MODEL_NAME):
-            try:
-                import gdown
-                st.info("📥 Downloading model from Google Drive... (This may take a minute)")
-                url = f"https://drive.google.com/uc?id={GOOGLE_DRIVE_FILE_ID}"
-                gdown.download(url, DOWNLOAD_MODEL_NAME, quiet=False)
-                st.success("✅ Model downloaded successfully!")
-            except Exception as download_error:
-                st.error(f"❌ Failed to download model: {str(download_error)}")
-                st.error("Please check your internet connection and Google Drive file permissions.")
-                return None, None
+            import gdown
+            url = f"https://drive.google.com/uc?id={GOOGLE_DRIVE_FILE_ID}"
+            gdown.download(url, DOWNLOAD_MODEL_NAME, quiet=False)
         
-        # Load the downloaded model
-        st.info("🔄 Loading downloaded model...")
+        # Load the model
         model = load_model(DOWNLOAD_MODEL_NAME)
-        st.success("✅ Model loaded successfully!")
-        return model, DOWNLOAD_MODEL_NAME
+        return model, DOWNLOAD_MODEL_NAME, 5  # 5 classes
         
     except Exception as e:
         st.error(f"❌ Error loading model: {str(e)}")
-        return None, None
+        return None, None, None
 
 def preprocess_image(image, target_size=(299, 299)):
     """Preprocess image for InceptionV3 model"""
@@ -343,7 +330,7 @@ def main():
         """)
     
     # Load model
-    model, model_name = load_trained_model()
+    model, model_name, num_classes = load_trained_model()
     
     if model is None:
         st.stop()
